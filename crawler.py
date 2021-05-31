@@ -1,109 +1,200 @@
 # ----------------------------------------------------------------------------------------------------------------------
 from bs4 import BeautifulSoup
-import requests
-import csv
-import time
 from datetime import datetime
+
+import csv
 import datetime
+import os
+import time
+import utility as ut
 
 # ----------------------------------------------------------------------------------------------------------------------
-# Write data to csv file.
+class Singleton:
+    """
+    The Singleton class is a non-thread-safe helper class which can be used to easily implement singletons.
+    The decorated class can define an `__init__` method which takes only the `self` argument.
+    To get the singleton instance, simply use the `instance` method.
 
+    Important notes:
+    - This class should only be used as a decorator - and not as a meta class - to the class that should be a singleton.
+    - The decorated class cannot be inherited from. Other than that, there are no restrictions that apply to the
+      decorated class.
+    - Trying to use `__call__` will result in a `TypeError` being raised.
+    """
 
-def writeToCsv(listInput,filename):
+    def __init__(self, decorated):
+        self._decorated = decorated
+
+    def instance(self):
+        """
+        Returns the singleton instance. Upon its first call, it creates a new instance of the decorated class and
+        calls its `__init__` method. On all subsequent calls, the already created instance will be returned.
+        """
+
+        try:
+            return self._instance
+        except AttributeError:
+            self._instance = self._decorated()
+            return self._instance
+
+    def __call__(self):
+        raise TypeError("Singletons have to be accessed through `instance()`.")
+
+    def __instanceheck__(self, inst):
+        return isinstance(inst, self._decorated)
+
+# ----------------------------------------------------------------------------------------------------------------------
+@Singleton
+class CsvHandler:
+    def __init__(self):
+        self._filePath = None
+
+    def filePath(self):
+        """
+        Returns the CSV file path.
+        """
+        return self._filePath
+
+    def setFilePath(self, filePath):
+        """
+        Sets the CSV file path.
+            filePath: The specified CSV file path.
+        """
+        ut.createFileIfNotExist(filePath=filePath, removeIfExists=True)
+        self._filePath = filePath
+
+    def writeToCsv(self, dictData):
+        """
+        Write the date in the CSV file previously specified by the file path.
+            dictData: Dictionary which contains all the data.
+        """
+
+        try:
+            with open(self._filePath, 'a') as fileHandler:
+                writer = csv.DictWriter(fileHandler, dictData.keys())
+                if fileHandler.tell() == 0:
+                    writer.writeheader()
+                writer.writerow(dictData)
+                return True
+        except:
+            return False
+
+#--------------------------------------------------------------------------------------------------------------------
+def getTimestamp():
+    """
+    Returns the current timestamp.
+    """
+    return datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d %H:%M:%S")
+
+#--------------------------------------------------------------------------------------------------------------------
+def getAbsolutePath(absoluteFilePath, relativeFilePath):
+    """
+    Returns the absolute path of the specified relative file path.
+        absoluteFilePath: Absolute file path used for reference.
+        relativeFilePath: Relative file path for which the absolute path should be returned.
+    """
     try:
-        with open(filename, 'a') as fopen:
-            w = csv.DictWriter(fopen, listInput.keys())
-            if fopen.tell() == 0:
-                w.writeheader()
-            w.writerow(listInput)
+        currentPath = os.getcwd()
+        os.chdir(os.path.dirname(absoluteFilePath))
+        os.chdir(os.path.dirname(relativeFilePath))
+        absolutePath = os.path.join(os.getcwd(), os.path.basename(relativeFilePath))
+        os.chdir(currentPath)
+        return absolutePath
     except:
-        return False
+        return relativeFilePath
 
 # ----------------------------------------------------------------------------------------------------------------------
+def getAllProductInfo(filePath):
+    categories = ""
+    priceNote = ""
+    productNote = ""
+    image = ""
+    bList = []
+    feature = ""
 
+    with open(filePath, 'r') as fileHandler:
+        contents = fileHandler.read()
+        soup = BeautifulSoup(contents, "lxml")
+        isProductPage = soup.find("div", class_="col-sm-6 detail-description")
 
+        if isProductPage:
+            listTitle = soup.find("div", class_="col-sm-6 detail-description").h1.text
+            productName = listTitle.strip().replace("\n", '')
+            category = soup.find("div", class_="breadcrumb")
+
+            liList = category.find_all('li')
+            for li in liList:
+                bList.append(li.a.text)
+            categories = '|'.join(map(str, bList))
+
+            if soup.find("img", class_="img-responsive jq-img-zoom"):
+                image = soup.find("img", class_="img-responsive jq-img-zoom")["src"]
+                image = getAbsolutePath(filePath, image)
+
+            price = soup.find("div", class_="price").text.strip().replace("\n", '')
+            if soup.find("p", class_="price-note"):
+                priceNote = soup.find("p", class_="price-note").text.strip().replace("\n", '')
+
+            if soup.find("p", class_="product-note"):
+                productNote = soup.find("p", class_="product-note").text
+                productNote = productNote.strip().replace("\n", '')
+
+            characteristics = soup.find("ul", class_="characteristics clearfix")
+            if characteristics:
+                feature = characteristics.text.strip().replace("\n", '')
+
+            nutrientTable = soup.find("table", class_="table-striped")
+            if nutrientTable:
+                nutrientInfo = getTableData(nutrientTable)
+            else:
+                nutrientInfo = ["" for i in range(8)]
+
+            if len(nutrientInfo) < 8:
+                nutrientInfo = ["" for i in range(8)]
+            timestamp = getTimestamp()
+
+            dictData = {"product_name": productName, "category": categories, "image": image, "price": price,
+                        "product_note": productNote, "price_note": priceNote, "feature": feature,
+                        "calorific_value_in_kJ": nutrientInfo[0], "calorific_value_in_kcal": nutrientInfo[1],
+                        "fat_in_g": nutrientInfo[2], "hereof_saturated_fatty_acids_in_g": nutrientInfo[3],
+                        "carbohydrates_in_g": nutrientInfo[4], "hereof_sugar_in_g": nutrientInfo[5],
+                        "protein_in_g": nutrientInfo[6], "salt_in_g": nutrientInfo[7], "timestamp": timestamp}
+
+            print("Success" if CsvHandler.instance().writeToCsv(dictData) else "Failed")
+            return
+    print("Done")
+
+# ----------------------------------------------------------------------------------------------------------------------
 def getTableData(nutrientTable):
-    t_headers = []
+    """
+    Currently not used.
+    """
+
+    tHeaders = []
     i = 0
     for th in nutrientTable.find_all("th"):
-        t_headers.append(th.text.replace('\n', ' ').strip())
-    table_data = []
-    # Find all tr's from table's tbody
+        tHeaders.append(th.text.replace('\n', ' ').strip())
+    tableData = []
+
+    # Find all tr's from table's tbody.
     for tr in nutrientTable.find_all("tr"):
-        t_row = {}
-        for td, th in zip(tr.find_all("td"), t_headers):
-            table_data.append(td.text)
-    return table_data
+        tRow = {}
+        for td, th in zip(tr.find_all("td"), tHeaders):
+            tableData.append(td.text)
+    return tableData
+
 # ----------------------------------------------------------------------------------------------------------------------
+def checkIfProductAlreadyPresentInFile(file, searchString):
+    """
+    Currently not used.
+    """
 
-
-def checkIfProductAlreadyPresentInFile(file,searchString):
-    with open(file, 'rb') as f:
-        reader = csv.DictReader(f)
+    with open(file, "rb") as fileHandler:
+        reader = csv.DictReader(fileHandler)
         for row in reader:
             if row[0] == searchString:
                 return False
             else:
                 return True
-#--------------------------------------------------------------------------------------------------------------------
-def get_timestamp():
-    ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-    return st
-
-# ----------------------------------------------------------------------------------------------------------------------
-#url = "www.edeka24.de/3-Bears-Dreierlei-Beere-Porridge-400-g.html"
-# "www.edeka24.de/Lebensmittel/Essig-Oel/Alnatura-Bio-Aceto-Balsamico-500ML.html"
-
-
-def getAllProductInfo(url):
-    print(url)
-    file='productInfo'+datetime.datetime.now(). strftime("%Y_%m_%d")+ '.csv'
-    with open(url, 'r') as f:
-        contents = f.read()
-        categories = priceNote= productNote=image=''
-        b = []
-        feature = "NIL"
-        
-        soup = BeautifulSoup(contents, 'lxml')
-        checkIfItsProductPage= soup.find("div", class_="col-sm-6 detail-description")
-        if checkIfItsProductPage:
-            listTitle = soup.find("div", class_="col-sm-6 detail-description").h1.text
-            productName = listTitle.strip()
-            category = soup.find("div", class_="breadcrumb")
-            list = category.find_all('li')
-            for li in list:
-                b.append(li.a.text)
-            categories = '|'.join(map(str, b))
-            if soup.find("img", class_="img-responsive jq-img-zoom"):
-                image = soup.find("img", class_="img-responsive jq-img-zoom")["src"]
-            price = soup.find("div", class_="price").text
-            if soup.find("p", class_="price-note"):
-                priceNote = soup.find("p", class_="price-note").text
-            if soup.find("p", class_="product-note"):
-                productNote = soup.find("p", class_="product-note").text
-                productNote = productNote.strip()
-            characteristics = soup.find("ul", class_="characteristics clearfix")
-            if characteristics:
-                feature = characteristics.text
-            nutrientTable = soup.find("table", class_="table-striped")
-            if nutrientTable:
-                nutrientInfo = getTableData(nutrientTable)
-            else:
-                nutrientInfo = ["NIL", "NIL", "NIL", "NIL", "NIL", "NIL", "NIL", "NIL"]
-            print(nutrientInfo)
-            if(len(nutrientInfo)<8):
-                nutrientInfo = ["NIL", "NIL", "NIL", "NIL", "NIL", "NIL", "NIL", "NIL"]
-            timestamp = get_timestamp()
-            finalData = {"Product Name": productName, "Category": categories, "Image": image, "Price": price,
-                        "ProductNote":productNote,
-                        "Price Note": priceNote, "Feature": feature, "Brennwert in kJ": nutrientInfo[0],
-                        "Brennwert in kcal": nutrientInfo[1], "Fett in g": nutrientInfo[2],
-                        "davon gesättigte Fettsauren in g": nutrientInfo[3], "Kohlenhydrate in g": nutrientInfo[4],
-                        "davon Zucker in g": nutrientInfo[5], "Eiweiß in g": nutrientInfo[6], "Salz in g": nutrientInfo[7],
-                        "Timestamp": timestamp}
-            writeToCsv(finalData,file)
-    print("Done")
 
 # ----------------------------------------------------------------------------------------------------------------------

@@ -1,10 +1,11 @@
 # ----------------------------------------------------------------------------------------------------------------------
 from os import scandir
 from os.path import isfile
+
 import crawler
 
 # ----------------------------------------------------------------------------------------------------------------------
-def navigateThroughSubDirs(dirPath, setMemo=set()):
+def crawlThroughSubDirs(dirPath, setMemo=set()):
     """
     Navigates through all sub directories recursively and calls the web crawler for each html file found.
         dirPath: Path to the current directory (string).
@@ -16,7 +17,7 @@ def navigateThroughSubDirs(dirPath, setMemo=set()):
 
     for element in scandir(dirPath):
         if element.is_dir():
-            navigateThroughSubDirs(element.path, setMemo)
+            crawlThroughSubDirs(element.path, setMemo)
         if isfile(element.path) and element.path.endswith(".html"):
             callWebCrawler(element.path, setMemo)
 
@@ -31,14 +32,6 @@ def callWebCrawler(filePath, setMemo):
         return
     if filePath.endswith('index.html'):
         return
-    # TO DO: Add web crawler in this function.
     crawler.getAllProductInfo(filePath)
-    return
-
-# ----------------------------------------------------------------------------------------------------------------------
-if __name__ == '__main__':
-
-    dirMain = "/home/a.bhaita/food_data/www.edeka24.de"
-    navigateThroughSubDirs(dirPath=dirMain)
 
 # ----------------------------------------------------------------------------------------------------------------------
