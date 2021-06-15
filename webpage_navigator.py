@@ -5,7 +5,9 @@ from os.path import isfile
 import crawler
 
 # ----------------------------------------------------------------------------------------------------------------------
-def crawlThroughSubDirs(dirPath, setMemo=set()):
+
+
+def crawlThroughSubDirs(dirPath, productList, setMemo=set()):
     """
     Navigates through all sub directories recursively and calls the web crawler for each html file found.
         dirPath: Path to the current directory (string).
@@ -17,12 +19,14 @@ def crawlThroughSubDirs(dirPath, setMemo=set()):
 
     for element in scandir(dirPath):
         if element.is_dir():
-            crawlThroughSubDirs(element.path, setMemo)
+            crawlThroughSubDirs(element.path, productList, setMemo)
         if isfile(element.path) and element.path.endswith(".html"):
-            callWebCrawler(element.path, setMemo)
+            callWebCrawler(element.path, productList, setMemo)
 
 # ----------------------------------------------------------------------------------------------------------------------
-def callWebCrawler(filePath, setMemo):
+
+
+def callWebCrawler(filePath, productList, setMemo):
     """
     Calls the web crawler for the specified file path.
         filePath: Path to the current file (string).
@@ -32,6 +36,6 @@ def callWebCrawler(filePath, setMemo):
         return
     if filePath.endswith('index.html'):
         return
-    crawler.getAllProductInfo(filePath)
+    crawler.getAllProductInfo(filePath, productList)
 
 # ----------------------------------------------------------------------------------------------------------------------

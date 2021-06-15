@@ -40,5 +40,22 @@ def createFileIfNotExist(filePath, removeIfExists=False):
         pathOfFile = Path(filePath)
         pathOfFile.touch(exist_ok=True)
         return
-
+#---------------------------------------------------------------------------------------------------------------------------------
+def formatString(s):
+    """
+    Replace , < and g from string and format it
+        s: string that need to be formatted.
+    """
+    s = s.replace(',','.').replace('<','').replace('g','')
+    return s
+#--------------------------------------------------------------------------------------------------------------------------------
+def checkValuesForEmpty(s):
+    """
+    Check if given string is empty or none return TRUE if empty else FALSE
+        s: string that need to be formatted.
+    """
+    if (s is None) or (str(s).strip()==""):
+        return True
+    else:
+        return False
 # ----------------------------------------------------------------------------------------------------------------------

@@ -14,7 +14,7 @@ def main():
     """
 
     url = "https://www.edeka24.de/"
-
+    productList = []
     # Prepare download directory
     scriptPath = ut.identifyScriptPath()
     dirDownload = os.path.join(scriptPath, "data", "edeka24")
@@ -30,7 +30,7 @@ def main():
     wd.downloadWebPage(url=url, dirDownload=dirDownload)
 
     # Run the crawler by traversing through the downloaded webpage.
-    wn.crawlThroughSubDirs(dirDownload)
+    wn.crawlThroughSubDirs(dirDownload,productList)
 
     # To do: Read in CSV as Pandas dataframe to upload it to MariaDB.
 

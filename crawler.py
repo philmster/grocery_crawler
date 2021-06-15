@@ -76,7 +76,8 @@ class CsvHandler:
                     writer.writeheader()
                 writer.writerow(dictData)
                 return True
-        except:
+        except Exception as e:
+            print(e)
             return False
 
 #--------------------------------------------------------------------------------------------------------------------
@@ -104,7 +105,7 @@ def getAbsolutePath(absoluteFilePath, relativeFilePath):
         return relativeFilePath
 
 # ----------------------------------------------------------------------------------------------------------------------
-def getAllProductInfo(filePath):
+def getAllProductInfo(filePath, productList):
     categories = ""
     priceNote = ""
     productNote = ""
@@ -120,47 +121,52 @@ def getAllProductInfo(filePath):
         if isProductPage:
             listTitle = soup.find("div", class_="col-sm-6 detail-description").h1.text
             productName = listTitle.strip().replace("\n", '')
-            category = soup.find("div", class_="breadcrumb")
+            productPresent= checkIfProductAlreadyPresentInFile(CsvHandler.instance().filePath(),productList,productName)
+            if productPresent:
+                productList.append(productName)
+                category = soup.find("div", class_="breadcrumb")
 
-            liList = category.find_all('li')
-            for li in liList:
-                bList.append(li.a.text)
-            categories = '|'.join(map(str, bList))
+                liList = category.find_all('li')
+                for li in liList:
+                    bList.append(li.a.text)
+                categories = '|'.join(map(str, bList))
 
-            if soup.find("img", class_="img-responsive jq-img-zoom"):
-                image = soup.find("img", class_="img-responsive jq-img-zoom")["src"]
-                image = getAbsolutePath(filePath, image)
+                if soup.find("img", class_="img-responsive jq-img-zoom"):
+                    image = soup.find("img", class_="img-responsive jq-img-zoom")["src"]
+                    image = getAbsolutePath(filePath, image)
 
-            price = soup.find("div", class_="price").text.strip().replace("\n", '')
-            if soup.find("p", class_="price-note"):
-                priceNote = soup.find("p", class_="price-note").text.strip().replace("\n", '')
+                price = soup.find("div", class_="price").text.strip().replace("\n", '').replace(' €','')
+                if soup.find("p", class_="price-note"):
+                    priceNote = soup.find("p", class_="price-note").text.strip().replace("\n", '')
 
-            if soup.find("p", class_="product-note"):
-                productNote = soup.find("p", class_="product-note").text
-                productNote = productNote.strip().replace("\n", '')
+                if soup.find("p", class_="product-note"):
+                    productNote = soup.find("p", class_="product-note").text
+                    productNote = productNote.strip().replace("\n", '')
 
-            characteristics = soup.find("ul", class_="characteristics clearfix")
-            if characteristics:
-                feature = characteristics.text.strip().replace("\n", '')
+                characteristics = soup.find("ul", class_="characteristics clearfix")
+                if characteristics:
+                    feature = characteristics.text.strip().replace("\n", '')
 
-            nutrientTable = soup.find("table", class_="table-striped")
-            if nutrientTable:
-                nutrientInfo = getTableData(nutrientTable)
-            else:
-                nutrientInfo = ["" for i in range(8)]
+                nutrientTable = soup.find("table", class_="table-striped")
+                if nutrientTable:
+                    nutrientInfo = getTableData(nutrientTable)
+                else:
+                    nutrientInfo = ["" for i in range(8)]
 
-            if len(nutrientInfo) < 8:
-                nutrientInfo = ["" for i in range(8)]
-            timestamp = getTimestamp()
+                if len(nutrientInfo) < 8:
+                    nutrientInfo = ["" for i in range(8)]
+                timestamp = getTimestamp()
 
-            dictData = {"product_name": productName, "category": categories, "image": image, "price": price,
-                        "product_note": productNote, "price_note": priceNote, "feature": feature,
-                        "calorific_value_in_kJ": nutrientInfo[0], "calorific_value_in_kcal": nutrientInfo[1],
-                        "fat_in_g": nutrientInfo[2], "hereof_saturated_fatty_acids_in_g": nutrientInfo[3],
-                        "carbohydrates_in_g": nutrientInfo[4], "hereof_sugar_in_g": nutrientInfo[5],
-                        "protein_in_g": nutrientInfo[6], "salt_in_g": nutrientInfo[7], "timestamp": timestamp}
-
-            print("Success" if CsvHandler.instance().writeToCsv(dictData) else "Failed")
+                dictData = {"product_name": productName, "category": categories, "image": image, "price_in_euro": price,
+                            "product_note": productNote, "price_note": priceNote, "feature": feature,
+                            "calorific_value_in_kJ": nutrientInfo[0], "calorific_value_in_kcal": nutrientInfo[1],
+                            "fat_in_g": nutrientInfo[2], "saturated_fatty_acids_in_g": nutrientInfo[3],
+                            "carbohydrates_in_g": nutrientInfo[4], "sugar_in_g": nutrientInfo[5],
+                            "protein_in_g": nutrientInfo[6], "salt_in_g": nutrientInfo[7], "timestamp": timestamp}
+                insertQuery = createInsertQuery(dictData)
+                if insertQuery:
+                    dictData['sql_query'] = insertQuery
+                print("Success" if CsvHandler.instance().writeToCsv(dictData) else "Failed")
             return
     print("Done")
 
@@ -184,17 +190,41 @@ def getTableData(nutrientTable):
     return tableData
 
 # ----------------------------------------------------------------------------------------------------------------------
-def checkIfProductAlreadyPresentInFile(file, searchString):
+def checkIfProductAlreadyPresentInFile(file, productList, searchString):
     """
-    Currently not used.
+    Check if current name is already present in csv to remove duplicate entries of same product.
+        file: csv file that store product information
+        productList: list that contain product name
+        searchString: name of the new product that need to check
     """
-
-    with open(file, "rb") as fileHandler:
+    with open(file, "r") as fileHandler:
         reader = csv.DictReader(fileHandler)
         for row in reader:
-            if row[0] == searchString:
-                return False
-            else:
+            if row['product_name']:
+                name = row['product_name']
+                if name not in productList:
+                    return True
+                else:
+                    return False
                 return True
+    return True
 
 # ----------------------------------------------------------------------------------------------------------------------
+def createInsertQuery(dictData):
+    """
+    Insert query for product Info
+        dictData: product info dictionary sets
+    """
+    queryQuote = valuesQuote = insertQuery= ''
+    for key,values in dictData.items():
+        checkQuery = ut.checkValuesForEmpty(values)
+        if not checkQuery:
+            queryQuote = queryQuote+"'"+key+"',"
+            values = ut.formatString(values)
+            if key in ('product_name','category','image','product_note','price_note','feature','timestamp'):
+                values = "'"+ values+"'"
+            valuesQuote = valuesQuote+values+','
+    if queryQuote !='' and valuesQuote!='':
+        insertQuery= 'Insert INTO productInfo ('+queryQuote.rstrip(',')+') VALUES ('+valuesQuote.rstrip(',')+')'
+        print(insertQuery)
+    return insertQuery
