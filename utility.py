@@ -42,3 +42,37 @@ def createFileIfNotExist(filePath, removeIfExists=False):
         return
 
 # ----------------------------------------------------------------------------------------------------------------------
+def seperateStringNumber(string):
+    """
+    Creates separate strings and numbers to access only package size from product name
+        string: Product Name.
+    """
+    previous_character = string[0]
+    groups = []
+    newword = string[0]
+    for x, i in enumerate(string[1:]):
+        if i.isalpha() and previous_character.isalpha():
+            newword += i
+        elif i.isnumeric() and previous_character.isnumeric():
+            newword += i
+        else:
+            groups.append(newword)
+            newword = i
+
+        previous_character = i
+
+        if x == len(string) - 2:
+            groups.append(newword)
+            newword = ''
+    return groups
+#--------------------------------------------------------------------------------------------------------------------------
+def replaceAll(text, dic):
+    """
+    Replace multiple substrings of a string with different values.
+        text: Main string
+        dic: Dictionary for substring values to be replaced 
+    """
+    for i, j in dic.items():
+        text = text.replace(i, j)
+    return text
+#-------------------------------------------------------------------------------------------------------------------------

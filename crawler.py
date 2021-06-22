@@ -138,7 +138,7 @@ def getAllProductInfo(filePath):
     image = ""
     bList = []
     feature = ""
-
+    
     with open(filePath, 'r') as fileHandler:
         contents = fileHandler.read()
         soup = BeautifulSoup(contents, "lxml")
@@ -147,6 +147,16 @@ def getAllProductInfo(filePath):
         if isProductPage:
             listTitle = soup.find("div", class_="col-sm-6 detail-description").h1.text
             productName = listTitle.strip().replace("\n", '')
+            groupNames= ut.seperateStringNumber(productName)
+            if groupNames:
+                if groupNames[-5].isdigit() and groupNames[-4]==',':
+                    packageSize = ''.join(groupNames[-5:]).replace(',','.').strip()
+                elif(groupNames[-4].isdigit() and groupNames[-3]==','):
+                    packageSize = ''.join(groupNames[-4:]).replace(',','.').strip()
+                else: 
+                    packageSize = ''.join(groupNames[-3:]).replace(',','.').strip()
+            else:
+                packageSize = ''
             category = soup.find("div", class_="breadcrumb")
 
             liList = category.find_all('li')
@@ -159,6 +169,8 @@ def getAllProductInfo(filePath):
                 image = getAbsolutePath(filePath, image)
 
             price = soup.find("div", class_="price").text.strip().replace("\n", '')
+            replaceDict= {" €":'','.':'',',':'.'}
+            price = ut.replaceAll(price,replaceDict)
             if soup.find("p", class_="price-note"):
                 priceNote = soup.find("p", class_="price-note").text.strip().replace("\n", '')
 
@@ -169,7 +181,13 @@ def getAllProductInfo(filePath):
             characteristics = soup.find("ul", class_="characteristics clearfix")
             if characteristics:
                 feature = characteristics.text.strip().replace("\n", '')
-
+            nutrientPerGramm = soup.find("span", class_="listTitlePerGramm")
+            if nutrientPerGramm:
+                nutrientsTotal = soup.find("span", class_="listTitlePerGramm").text
+                replaDict= {"\n": '',':':'','unzubereitet':'','(':'',')':'','je':'','pro':'','zubereitet':'','verarbeitet':''}
+                nutrientsTotalQuantity = ut.replaceAll(nutrientsTotal,replaDict).strip()
+            else:
+                nutrientsTotalQuantity = ""
             nutrientTable = soup.find("table", class_="table-striped")
             if nutrientTable:
                 nutrientInfo = getTableData(nutrientTable)
@@ -180,13 +198,13 @@ def getAllProductInfo(filePath):
                 nutrientInfo = ["" for i in range(8)]
             timestamp = getTimestamp()
 
-            dictData = {"product_name": productName, "category": categories, "image": image, "price": price,
+            dictData = {"product_name": productName, "category": categories, "image": image, "price": float(price),
                         "product_note": productNote, "price_note": priceNote, "feature": feature,
                         "calorific_value_in_kJ": nutrientInfo[0], "calorific_value_in_kcal": nutrientInfo[1],
                         "fat_in_g": nutrientInfo[2], "hereof_saturated_fatty_acids_in_g": nutrientInfo[3],
                         "carbohydrates_in_g": nutrientInfo[4], "hereof_sugar_in_g": nutrientInfo[5],
-                        "protein_in_g": nutrientInfo[6], "salt_in_g": nutrientInfo[7], "timestamp": timestamp}
-
+                        "protein_in_g": nutrientInfo[6], "salt_in_g": nutrientInfo[7],"serving_size":nutrientsTotalQuantity,
+                        "timestamp": timestamp,"package_size":packageSize.strip()}
             print("Success" if CsvHandler.instance().writeToCsv(dictData) else "Failed")
             return
     print("Done")
@@ -207,7 +225,10 @@ def getTableData(nutrientTable):
     for tr in nutrientTable.find_all("tr"):
         tRow = {}
         for td, th in zip(tr.find_all("td"), tHeaders):
-            tableData.append(td.text)
+            tableText = td.text
+            replaDict= {'<': '','g':'','.':'',',':'.'}
+            tableText = ut.replaceAll(tableText,replaDict).strip()
+            tableData.append(tableText)
     return tableData
 
 # ----------------------------------------------------------------------------------------------------------------------

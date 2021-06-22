@@ -51,7 +51,7 @@ def main():
     dictAdjustDataTypes = {"product_name": "TEXT",
                            "category": "TEXT",
                            "image": "TEXT",
-                           "price": "TEXT",
+                           "price": "DECIMAL(8,2)",
                            "product_note": "TEXT",
                            "price_note": "TEXT",
                            "feature": "TEXT",
@@ -63,7 +63,9 @@ def main():
                            "hereof_sugar_in_g": "DECIMAL(8,2)",
                            "protein_in_g": "DECIMAL(8,2)",
                            "salt_in_g": "DECIMAL(8,2)",
-                           "timestamp": "TIMESTAMP"}
+                           "timestamp": "TIMESTAMP",
+                           "package_size":"TEXT",
+                           "serving_size":"TEXT"}
     du.createTable(dataFrame, dbName, dataTableName, logDirPath, dropTable=False, dictAdjustDataTypes=dictAdjustDataTypes)
 
     # Upload data frame to data warehouse.
