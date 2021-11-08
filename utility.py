@@ -65,7 +65,8 @@ def seperateStringNumber(string):
             groups.append(newword)
             newword = ''
     return groups
-#--------------------------------------------------------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------------------------------------------------
 def replaceAll(text, dic):
     """
     Replace multiple substrings of a string with different values.
@@ -75,4 +76,43 @@ def replaceAll(text, dic):
     for i, j in dic.items():
         text = text.replace(i, j)
     return text
-#-------------------------------------------------------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------------------------------------------------
+def checkAndWipeMaxStoredCSVFilesIfNeeded(currentScriptPath, csvFileName, outputDir, iMaxCount=100):
+    """
+    Checks if the maximal number of stored files has been reached and if so, wipes all created CSV files.
+    Returns True if no wiping has been performed and False otherwise.
+        currentScriptPath: Script path
+        currentFileName: File name of the current CSV file
+        outputDir: Output directory of the created CSV files
+        iMaxCount: Maximum number of allowed files to be stored
+    """
+
+    helpersDir = os.path.join(currentScriptPath, "data", "helpers")
+    createDirIfNotExist(helpersDir)
+    createdCsvFilesPath = os.path.join(helpersDir, "created_csv_files.txt")
+    if not os.path.isfile(createdCsvFilesPath):
+        open(createdCsvFilesPath, "w")
+
+    bAlreadyFound = False
+    iCount = 0
+    with open(createdCsvFilesPath, "r") as fileHandler:
+        for line in fileHandler:
+            if csvFileName in line:
+                bAlreadyFound = True
+            iCount += 1
+
+    if not bAlreadyFound:
+        with open(createdCsvFilesPath, "a") as fileHandler:
+            fileHandler.write("{0}\n".format(csvFileName))
+            iCount += 1
+
+    if iCount >= iMaxCount:
+        with open(createdCsvFilesPath, "w") as fileHandler:
+            fileHandler.write("{0}\n".format(csvFileName))
+        for file in os.scandir(outputDir):
+            os.remove(file.path)
+        return False
+    return True
+
+#-----------------------------------------------------------------------------------------------------------------------

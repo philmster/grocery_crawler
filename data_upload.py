@@ -12,6 +12,32 @@ import pandas as pd
 
 # Custom modules
 import pysql
+
+# ======================================================================================================================
+def createDataTypeAdjustmentDict():
+    dictAdjustDataTypes = {"product_name": "TEXT",
+                           "category": "JSON",
+                           "image": "TEXT",
+                           "price": "DECIMAL(8,2)",
+                           "product_note": "TEXT",
+                           "price_note": "DECIMAL(8,2)",
+                           "price_note_dim": "TEXT",
+                           "feature": "TEXT",
+                           "calorific_value_in_kJ": "DECIMAL(8,2)",
+                           "calorific_value_in_kcal": "DECIMAL(8,2)",
+                           "fat_in_g": "DECIMAL(8,2)",
+                           "hereof_saturated_fatty_acids_in_g": "DECIMAL(8,2)",
+                           "carbohydrates_in_g": "DECIMAL(8,2)",
+                           "hereof_sugar_in_g": "DECIMAL(8,2)",
+                           "protein_in_g": "DECIMAL(8,2)",
+                           "salt_in_g": "DECIMAL(8,2)",
+                           "package_size": "DECIMAL(8,2)",
+                           "package_size_dim": "TEXT",
+                           "serving_size": "DECIMAL(8,2)",
+                           "serving_size_dim": "TEXT",
+                           "timestamp": "TIMESTAMP"}
+    return dictAdjustDataTypes
+
 # ======================================================================================================================
 # Transform CSV files to pandas data frame
 # ======================================================================================================================
@@ -32,12 +58,12 @@ def createTable(dataFrame, dbName, dataTableName, logDirPath=None, dropTable=Fal
     # Establish server connection
     # ------------------------------------------------------------------------------------------------------------------
 
-    hostIpAddress = ""	# insert ip address for mariadb here
-    username = ""	# insert mariadb username here
-    password = ""	# insert mariadb password here
-    keepassDB = "",	# can be ignored
-    keepassKey = "",	# can be ignored
-    keepassTitle = ""	# can be ignored
+    hostIpAddress = ""
+    username = ""
+    password = ""
+    keepassDB = ""      # can be ignored
+    keepassKey = "" 	# can be ignored
+    keepassTitle = ""   # can be ignored
 
     connection = pysql.establishServerConnection(hostIpAddress=hostIpAddress,
                                                  dbName=dbName,
@@ -74,32 +100,25 @@ def createTable(dataFrame, dbName, dataTableName, logDirPath=None, dropTable=Fal
 # ======================================================================================================================
 # Upload data frame
 # ======================================================================================================================
-def uploadDataFrame(dataFrame, dbName, dataTableName, logDirPath=None):
+def uploadDataFrame(dataFrame, dbName, dataTableName, lstJsonArrayIndices, logDirPath=None):
     """
     Uploads a data frame to a database in a data warehouse.
     """
-
-    from dateutil import parser
-    import csv
 
     # ------------------------------------------------------------------------------------------------------------------
     # Establish server connection
     # ------------------------------------------------------------------------------------------------------------------
 
-    hostIpAddress = ""	# insert ip address for mariadb here
-    username = ""	# insert mariadb username here
-    password = ""	# insert mariadb password here
-    keepassDB = "",	# can be ignored
-    keepassKey = "",	# can be ignored
-    keepassTitle = ""	# can be ignored
-
+    hostIpAddress = ""
+    username = ""
+    password = ""
     connection = pysql.establishServerConnection(hostIpAddress=hostIpAddress,
                                                  dbName=dbName,
                                                  username=username,
                                                  password=password,
-                                                 keepassDB=keepassDB,
-                                                 keepassKey=keepassKey,
-                                                 keepassTitle=keepassTitle)
+                                                 keepassDB="",
+                                                 keepassKey="",
+                                                 keepassTitle="")
 
     # ------------------------------------------------------------------------------------------------------------------
     # Execute SQL INSERT statement
@@ -110,16 +129,14 @@ def uploadDataFrame(dataFrame, dbName, dataTableName, logDirPath=None):
 
     # Define a cursor object which is necessary to execute SQL statements.
     sqlInsert.setCursor()
+    sqlInsert.setLstJsonArrayIndices(lstJsonArrayIndices)
 
     print("Uploading data table " + dataTableName + " to database " + dbName + "...")
 
-    #for dictRow in dataFrame.to_dict(orient="records"):
     for index, row in dataFrame.iterrows():
         dictRow = row.to_dict()
         values = list(dictRow.values())
-        #values = [getattr(row, columnName) for columnName in lstColumnNames]
         sqlInsert.setValues(values)
-
         statement = sqlInsert.buildStatement()
         sqlInsert.executeStatement(statement, False)
 

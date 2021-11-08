@@ -35,3 +35,5 @@ def callWebCrawler(filePath, setMemo):
     crawler.getAllProductInfo(filePath)
 
 # ----------------------------------------------------------------------------------------------------------------------
+def printCrawlerStatistics():
+    crawler.printStatistics()
